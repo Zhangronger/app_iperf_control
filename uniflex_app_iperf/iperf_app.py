@@ -3,7 +3,7 @@ import inspect
 import logging
 import subprocess
 
-
+import time
 from uniflex.core import exceptions
 from uniflex.core import modules
 from uniflex.core import events
@@ -17,16 +17,18 @@ __version__ = "0.1.0"
 __email__ = "{zubow}@tkn.tu-berlin.de"
 
 
-'''
-    Iperf app for setting up packet flows.
-'''
 class ResultScanner(UniFlexThread):
+    """
+        Thread scanning for throughput results.
+    """
 
-    def __init__(self, module, type, process):
+    def __init__(self, module, isServer, stopAfterFirstReport, process):
         super().__init__(module)
         self.log = logging.getLogger('iperf_module.scanner')
-        self.type = type
+        self.isServer = isServer
+        self.stopAfterFirstReport = stopAfterFirstReport
         self.process = process
+
 
     def task(self):
         self.log.debug('started scanner for iperf')
@@ -36,17 +38,25 @@ class ResultScanner(UniFlexThread):
             line = line.decode('utf-8')
             throughput = self._helper_parseIperf(line)
             if throughput:
-                sample = IperfSampleEvent(self.type, throughput)
-                self.log.info(self.type + ' side Throughput : ' + str(throughput))
+                sample = IperfSampleEvent(self.isServer, throughput)
+                if self.isServer:
+                    self.log.info('server side Throughput : ' + str(throughput))
+                else:
+                    self.log.info('client side Throughput : ' + str(throughput))
                 sys.stdout.flush()
                 self.module.send_event(sample)
+                if self.stopAfterFirstReport:
+                    break
 
         self.process.kill()
 
+
     def _helper_parseIperf(self, iperfOutput):
-        """Parse iperf output and return bandwidth.
+        """
+        Parse iperf output and return bandwidth.
            iperfOutput: string
-           returns: result string"""
+           returns: result string
+        """
         import re
 
         r = r'([\d\.]+ \w+/sec)'
@@ -58,37 +68,25 @@ class ResultScanner(UniFlexThread):
 
 
 class IperfModule(modules.ControlApplication):
+    """
+        Uniflex Iperf app listens to events to start iperf server/client and reports the throughput results using
+        events.
+    """
+
     def __init__(self):
         super(IperfModule, self).__init__()
         self.log = logging.getLogger('iperf_module.main')
-        self.nodes = {}
+
 
     @modules.on_start()
     def start_iperf_module(self):
         self.log.debug("Start iperf module".format())
 
+
     @modules.on_exit()
     def stop_iperf_module(self):
         self.log.debug("Stop iperf module".format())
 
-    @modules.on_event(events.NewNodeEvent)
-    def add_node(self, event):
-        node = event.node
-
-        self.log.info("Added new node: {}, Local: {}"
-                      .format(node.uuid, node.local))
-        self.nodes[node.uuid] = node
-
-    @modules.on_event(events.NodeExitEvent)
-    @modules.on_event(events.NodeLostEvent)
-    def remove_node(self, event):
-        self.log.info("Node lost".format())
-        node = event.node
-        reason = event.reason
-        if node.uuid in self.nodes:
-            del self.nodes[node.uuid]
-            self.log.info("Node: {}, Local: {} removed reason: {}"
-                          .format(node.uuid, node.local, reason))
 
     @modules.on_event(IperfServerRequestEvent)
     def start_iperf_server(self, event):
@@ -96,12 +94,13 @@ class IperfModule(modules.ControlApplication):
         self.log.info('args = %s' % str(event))
 
         try:
-            appType = event.type
+            appIsServer = event.isServer
             port = event.port
             protocol = event.protocol
             resultReportInterval = event.resultReportInterval
+            stopAfterFirstReport = event.stopAfterFirstReport
 
-            assert appType == "Server"
+            assert appIsServer
 
             # cmd = str("killall -9 iperf")
             # os.system(cmd);
@@ -124,18 +123,17 @@ class IperfModule(modules.ControlApplication):
 
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
-            self._iperfServerScanner = ResultScanner(self, 'Server', process)
+            self._iperfServerScanner = ResultScanner(self, 'Server', stopAfterFirstReport, process)
             self._iperfServerScanner.start()
 
         except Exception as e:
             self.log.fatal("Install iperf server app failed: err_msg: %s" % (str(e)))
-            raise exceptions.FunctionExecutionFailedException(
-                func_name=inspect.currentframe().f_code.co_name,
-                err_msg='Failed to install app: ' + str(e))
 
-    def stop_iperf_server(self):
-        if self._iperfServerScanner:
-            self._iperfServerScanner.stop()
+
+    #def stop_iperf_server(self):
+    #    if self._iperfServerScanner:
+    #        self._iperfServerScanner.stop()
+
 
     @modules.on_event(IperfClientRequestEvent)
     def start_iperf_client(self, event):
@@ -143,12 +141,13 @@ class IperfModule(modules.ControlApplication):
         self.log.info('args = %s' % str(event))
 
         try:
-            appType = event.type
+            appIsServer = event.isServer
             port = event.port
             protocol = event.protocol
             resultReportInterval = event.resultReportInterval
+            stopAfterFirstReport = event.stopAfterFirstReport
 
-            assert appType == "Client"
+            assert not appIsServer
 
             self.log.info('Installing Client application')
 
@@ -184,15 +183,13 @@ class IperfModule(modules.ControlApplication):
 
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
-            self._iperfClientScanner = ResultScanner(self, 'Client', process)
+            self._iperfClientScanner = ResultScanner(self, 'Client', stopAfterFirstReport, process)
             self._iperfClientScanner.start()
 
         except Exception as e:
-            self.log.fatal("Install app failed: err_msg: %s" % (str(e)))
-            raise exceptions.FunctionExecutionFailedException(
-                func_name=inspect.currentframe().f_code.co_name,
-                err_msg='Failed to install app: ' + str(e))
+            self.log.fatal("Install iperf client app failed: err_msg: %s" % (str(e)))
 
-    def stop_iperf_client(self):
-        if self._iperfClientScanner:
-            self._iperfClientScanner.stop()
+
+    #def stop_iperf_client(self):
+    #    if self._iperfClientScanner:
+    #        self._iperfClientScanner.stop()

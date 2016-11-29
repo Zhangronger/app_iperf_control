@@ -20,12 +20,10 @@ if __name__ == '__main__':
     if startServer:
         print('Installing iperf server on node')
         iperfServerEvent = IperfServerRequestEvent()
-        iperfServerEvent.resultReportInterval = 1
-        server_thr = iperf.start_iperf_server(iperfServerEvent)
-        #print('Iperf client; throughput is %s' % str(server_thr['throughput']))
-        time.sleep(10)
-        iperf.stop_iperf_server()
-        time.sleep(1)
+        #iperfServerEvent.resultReportInterval = 1
+        iperfServerEvent.stopAfterFirstReport = True
+        iperf.start_iperf_server(iperfServerEvent)
+        time.sleep(100)
 
     #if startClient:
     #    print('Installing iperf client on node')
