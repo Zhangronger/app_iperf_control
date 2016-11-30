@@ -30,6 +30,9 @@ class IperfRequestEvent(events.EventBase):
         self.protocol = protocol
         self.tcpWindow = tcpWindow
 
+    def to_string(self):
+        return 'tbd'
+
 
 class IperfServerRequestEvent(IperfRequestEvent):
     def __init__(self, startTime=0, resultReportInterval=None, stopAfterFirstReport=True, port=5001, protocol='TCP',

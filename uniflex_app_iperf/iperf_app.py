@@ -25,6 +25,7 @@ class ResultScanner(UniFlexThread):
     def __init__(self, module, isServer, stopAfterFirstReport, process):
         super().__init__(module)
         self.log = logging.getLogger('iperf_module.scanner')
+        self.log.debug('starting scanner for iperf')
         self.isServer = isServer
         self.stopAfterFirstReport = stopAfterFirstReport
         self.process = process
@@ -138,7 +139,7 @@ class IperfModule(modules.ControlApplication):
     @modules.on_event(IperfClientRequestEvent)
     def start_iperf_client(self, event):
         self.log.info('Function: install iperf client')
-        self.log.info('args = %s' % str(event))
+        self.log.info('args = %s' % event.to_string())
 
         try:
             appIsServer = event.isServer
@@ -156,6 +157,7 @@ class IperfModule(modules.ControlApplication):
             dualTest = event.dualtest
             dataToSend = event.dataToSend
             transmissionTime = event.transmissionTime
+            self.log.info('1')
 
             cmd = ['/usr/bin/iperf', '-c', serverIp]
 
@@ -166,22 +168,29 @@ class IperfModule(modules.ControlApplication):
                 if udpBandwidth:
                     cmd.extend(['-b', str(udpBandwidth)])
 
+            self.log.info('1')
             if port:
                 cmd.extend(['-p', str(port)])
 
+            self.log.info('1')
             if dualTest:
                 cmd.extend(['-d'])
 
+            self.log.info('1')
             if dataToSend:
                 cmd.extend(['-n', str(dataToSend)])
 
+            self.log.info('1')
             if transmissionTime:
                 cmd.extend(['-t', str(transmissionTime)])
 
+            self.log.info('1')
             if resultReportInterval:
                 cmd.extend(['-i', str(resultReportInterval)])
 
+            self.log.info('1')
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            self.log.info('1')
 
             self._iperfClientScanner = ResultScanner(self, 'Client', stopAfterFirstReport, process)
             self._iperfClientScanner.start()
