@@ -4,6 +4,8 @@ import logging
 import subprocess
 
 import time
+
+from sbi.common.events import AppIntentEvent
 from uniflex.core import exceptions
 from uniflex.core import modules
 from uniflex.core import events
@@ -103,6 +105,13 @@ class IperfModule(modules.ControlApplication):
 
             assert appIsServer
 
+            app_intent = event.app_intent
+
+            if app_intent:
+                self.log.info('Handling application intents ... send event to other components')
+                intent_event = AppIntentEvent(app_intent)
+                self.send_event(intent_event)
+
             # cmd = str("killall -9 iperf")
             # os.system(cmd);
             bind = event.bind
@@ -157,7 +166,17 @@ class IperfModule(modules.ControlApplication):
             dualTest = event.dualtest
             dataToSend = event.dataToSend
             transmissionTime = event.transmissionTime
+
+            self.log.info("SIP: {}, BW: {}, D: {}, data: {}, t: {}"
+                      .format(serverIp, udpBandwidth, dualTest, dataToSend, transmissionTime))
             self.log.info('1')
+
+            app_intent = event.app_intent
+
+            if app_intent:
+                self.log.info('Handling application intents ... send event to other components')
+                intent_event = AppIntentEvent(app_intent)
+                self.send_event(intent_event)
 
             cmd = ['/usr/bin/iperf', '-c', serverIp]
 
