@@ -105,12 +105,13 @@ class IperfModule(modules.ControlApplication):
 
             assert appIsServer
 
-            app_intent = event.app_intent
-
-            if app_intent:
+            try:
+                app_intent = event.app_intent
                 self.log.info('Handling application intents ... send event to other components')
                 intent_event = AppIntentEvent(app_intent)
                 self.send_event(intent_event)
+            except AttributeError:
+                self.log.debug('Running without intents')
 
             # cmd = str("killall -9 iperf")
             # os.system(cmd);
@@ -171,12 +172,14 @@ class IperfModule(modules.ControlApplication):
                       .format(serverIp, udpBandwidth, dualTest, dataToSend, transmissionTime))
             self.log.info('1')
 
-            app_intent = event.app_intent
-
-            if app_intent:
-                self.log.info('Handling application intents ... send event to other components')
+            try:
+                app_intent = event.app_intent
+                self.log.info(('Handling application intents '
+                    '... send event to other components'))
                 intent_event = AppIntentEvent(app_intent)
                 self.send_event(intent_event)
+            except AttributeError:
+                self.log.debug('Running without intents')
 
             cmd = ['/usr/bin/iperf', '-c', serverIp]
 
