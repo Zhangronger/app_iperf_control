@@ -140,12 +140,6 @@ class IperfModule(modules.ControlApplication):
         except Exception as e:
             self.log.fatal("Install iperf server app failed: err_msg: %s" % (str(e)))
 
-
-    #def stop_iperf_server(self):
-    #    if self._iperfServerScanner:
-    #        self._iperfServerScanner.stop()
-
-
     @modules.on_event(IperfClientRequestEvent)
     def start_iperf_client(self, event):
         self.log.info('Function: install iperf client')
@@ -168,9 +162,13 @@ class IperfModule(modules.ControlApplication):
             dataToSend = event.dataToSend
             transmissionTime = event.transmissionTime
 
-            self.log.info("SIP: {}, BW: {}, D: {}, data: {}, t: {}"
-                      .format(serverIp, udpBandwidth, dualTest, dataToSend, transmissionTime))
-            self.log.info('1')
+            self.log.info("SIP: {}, BW: {}, D: {}, data: {}, t: {}".format(
+                serverIp,
+                udpBandwidth,
+                dualTest,
+                dataToSend,
+                transmissionTime,
+            ))
 
             try:
                 app_intent = event.app_intent
@@ -190,31 +188,29 @@ class IperfModule(modules.ControlApplication):
                 if udpBandwidth:
                     cmd.extend(['-b', str(udpBandwidth)])
 
-            self.log.info('1')
             if port:
                 cmd.extend(['-p', str(port)])
-
-            self.log.info('1')
             if dualTest:
                 cmd.extend(['-d'])
-
-            self.log.info('1')
             if dataToSend:
                 cmd.extend(['-n', str(dataToSend)])
-
-            self.log.info('1')
             if transmissionTime:
                 cmd.extend(['-t', str(transmissionTime)])
-
-            self.log.info('1')
             if resultReportInterval:
                 cmd.extend(['-i', str(resultReportInterval)])
 
-            self.log.info('1')
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-            self.log.info('1')
+            self.log.debug(cmd)
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+            )
 
-            self._iperfClientScanner = ResultScanner(self, 'Client', stopAfterFirstReport, process)
+            self._iperfClientScanner = ResultScanner(
+                self,
+                'Client',
+                stopAfterFirstReport,
+                process,
+            )
             self._iperfClientScanner.start()
 
         except Exception as e:
